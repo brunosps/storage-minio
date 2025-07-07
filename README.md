@@ -61,6 +61,16 @@ git push dokku main
 # OU apenas a pasta minio: git subtree push --prefix=minio dokku main
 ```
 
+5. **⚠️ IMPORTANTE**: Configure as variáveis de ambiente no servidor:
+```bash
+# No servidor Dokku (s3.techdp.app)
+dokku config:set minio MINIO_ROOT_USER=admin MINIO_ROOT_PASSWORD=senhaSegura123
+```
+
+6. **🔗 Acesso ao MinIO no Dokku**:
+   - **S3 API**: `http://minio.us:9000` 
+   - **Console Web**: `http://minio.us:9001`
+
 ## Agendar Tiering
 
 ### Local (Docker Compose)
