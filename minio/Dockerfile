@@ -1,7 +1,7 @@
 FROM minio/minio:latest
 
-# Install curl for health checks
-RUN microdnf install -y curl && microdnf clean all
+# Install curl for health checks (MinIO uses Alpine Linux)
+RUN apk add --no-cache curl
 
 # Create data directories
 RUN mkdir -p /data-hot /data-cold
