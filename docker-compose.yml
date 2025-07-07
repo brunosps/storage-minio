@@ -1,0 +1,40 @@
+services:
+  minio:
+    build: ./minio
+    container_name: minio-ssd-hdd
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    command: server /data-hot /data-cold --console-address ":9001"
+    volumes:
+      - ./data/hot:/data-hot
+      - ./data/cold:/data-cold
+      - ./logs:/var/log
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # MinIO Console
+
+  # Serviço para tiering automático usando Alpine + cron
+  tiering:
+    image: alpine:latest
+    container_name: minio-tiering
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    depends_on:
+      - minio
+    volumes:
+      - ./scripts/tiering-minio.sh:/tmp/tiering-minio.sh:ro
+      - ./logs:/var/log
+    command: >
+      sh -c "
+        apk add --no-cache curl dcron wget &&
+        cp /tmp/tiering-minio.sh /usr/local/bin/tiering-minio.sh &&
+        chmod +x /usr/local/bin/tiering-minio.sh &&
+        echo '0 */3 * * * /usr/local/bin/tiering-minio.sh >> /var/log/tiering.log 2>&1' | crontab - &&
+        echo 'Tiering service started. Will run every 3 hours.' &&
+        echo 'Running initial tiering in 60 seconds...' &&
+        (sleep 60 && /usr/local/bin/tiering-minio.sh) &
+        crond -f
+      "
+    restart: unless-stopped
