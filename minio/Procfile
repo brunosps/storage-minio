@@ -1,0 +1,1 @@
+web: minio server /data-hot /data-cold --console-address :9001

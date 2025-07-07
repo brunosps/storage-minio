@@ -54,7 +54,12 @@ dokku storage:mount minio /mnt/nfs-hdd:/data-cold
 ```bash
 dokku config:set minio MINIO_ROOT_USER=admin MINIO_ROOT_PASSWORD=senhaSegura
 ```
-4. `git subtree push --prefix minio dokku@IP:minio main`
+4. Configure o remote e faça deploy:
+```bash
+git remote add dokku dokku@s3.techdp.app:minio
+git push dokku main
+# OU apenas a pasta minio: git subtree push --prefix=minio dokku main
+```
 
 ## Agendar Tiering
 
