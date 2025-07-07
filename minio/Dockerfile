@@ -1,12 +1,19 @@
 FROM minio/minio:latest
 
-# Copy tiering script
-COPY --chmod=755 tiering-minio.sh /usr/local/bin/tiering-minio.sh
+# Install curl for health checks
+RUN microdnf install -y curl && microdnf clean all
 
 # Create data directories
 RUN mkdir -p /data-hot /data-cold
 
+# Copy tiering script
+COPY --chmod=755 tiering-minio.sh /usr/local/bin/tiering-minio.sh
+
+# Expose ports
+EXPOSE 9000 9001
+
+# Health check
 HEALTHCHECK --start-period=1m CMD curl -f http://localhost:9000/minio/health/live || exit 1
 
-# Default command for Dokku (pode ser sobrescrito por variáveis de ambiente)
+# Start MinIO
 CMD ["server", "/data-hot", "/data-cold", "--console-address", ":9001"]
