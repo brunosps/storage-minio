@@ -19,20 +19,5 @@
       "quantity": 1,
       "size": "basic"
     }
-  },
-  "healthchecks": {
-    "web": [
-      {
-        "type": "startup",
-        "name": "web check",
-        "description": "Checking web formation",
-        "path": "/minio/health/live",
-        "attempts": 3,
-        "timeout": 5,
-        "wait": 5,
-        "uptime": 30,
-        "content": ""
-      }
-    ]
   }
 }
