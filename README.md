@@ -1,99 +1,172 @@
-# MinIO Hot/Cold Tiering Project
+# MinIO S3 Storage Manager
 
-Estrutura mínima para rodar **MinIO** (compatível S3) em modo standalone com dois
-pontos de montagem simulando:
+Sistema completo para gerenciar buckets, usuários e permissões no MinIO S3.
 
-* **🔥 /data-hot** → SSD (arquivos recentes/frequentes)
-* **❄️ /data-cold** → HDD (arquivos menos acessados)
+## 🚀 Início Rápido
 
-Inclui **script de movimentação** via `mc` (`scripts/tiering-minio.sh`) que implementa:
-
-| Regra | Ação |
-|-------|------|
-| `hot/` permanece 60 dias | move para `cold/` |
-| Arquivos > 10 MB & +3 dias | move para `cold/` |
-| `temp/` | delete após 7 dias |
-
-## Uso local
+### 1. Configuração
 
 ```bash
-cp .env.example .env          # ajuste usuário/senha se quiser
-docker compose up -d
+# 1. Configure suas credenciais
+cp .env.example .env
+nano .env
+
+# 2. Execute o gerenciador principal
+./minio-manager.sh
 ```
 
-O tiering será executado **automaticamente a cada 3 horas** via container `minio-tiering`.
+### 2. Estrutura do Projeto
 
-**⏰ Execução inicial**: O script roda pela primeira vez após 60 segundos do startup.
+```
+├── minio-manager.sh          # Script principal
+├── .env                      # Configurações (não commitado)
+├── .env.example             # Template de configurações
+├── scripts/
+│   ├── manage-buckets.sh    # Gerenciador de buckets e usuários
+│   ├── cleanup-buckets.sh   # Limpeza e configuração
+│   └── tiering-minio.sh     # Script de tiering (Docker)
+├── minio/
+│   ├── Dockerfile           # Container customizado
+│   └── tiering-minio.sh     # Script interno do container
+└── docker-compose.yml       # Orquestração dos serviços
+```
 
-Para verificar os logs do tiering:
+## 🔧 Configuração do .env
+
 ```bash
-docker logs minio-tiering
+# Configurações obrigatórias
+MINIO_ENDPOINT=https://s3.techdb.app
+MINIO_ROOT_USER=admin
+MINIO_ROOT_PASSWORD=sua_senha_segura
+
+# Configurações opcionais
+MINIO_ALIAS=s3admin
+MINIO_REGION=us-east-1
 ```
 
-Para executar tiering manualmente:
+## 📋 Funcionalidades
+
+### 🔧 Gerenciador de Buckets e Usuários
+
+- ✅ Criar buckets com estrutura de pastas automática
+- ✅ Criar usuários com permissões específicas
+- ✅ Vincular usuários a buckets
+- ✅ Gerenciar permissões (full/readonly)
+- ✅ Testar acessos
+
+### 🏗️ Estrutura de Buckets
+
+Cada bucket criado tem a seguinte estrutura:
+
+```
+bucket-nome/
+├── images/     # Imagens, fotos
+├── public/     # Arquivos públicos (acesso direto)
+└── uploads/    # Arquivos privados
+```
+
+### 🌐 URLs Públicas
+
+Arquivos na pasta `public/` ficam acessíveis via:
+```
+https://s3.techdb.app/bucket-nome/public/arquivo.jpg
+```
+
+## 🎯 Uso em Aplicações
+
+### Configuração S3 (Node.js)
+
+```javascript
+const s3Config = {
+  endpoint: process.env.MINIO_ENDPOINT,
+  accessKeyId: 'usuario-criado',
+  secretAccessKey: 'senha-do-usuario',
+  bucket: 'nome-do-bucket',
+  region: 'us-east-1'
+}
+```
+
+### Upload de Arquivos
+
+```javascript
+// Upload para pasta específica
+const uploadPath = {
+  image: 'bucket-nome/images/produto-123.jpg',
+  public: 'bucket-nome/public/banner.png',
+  document: 'bucket-nome/uploads/contrato.pdf'
+}
+```
+
+## 🛠️ Scripts Disponíveis
+
+### Script Principal
 ```bash
-docker exec minio-tiering /usr/local/bin/tiering-minio.sh
+./minio-manager.sh
 ```
 
-Acesse:
-* UI: <http://localhost:9001>
-* S3: <http://localhost:9000>
-
-## Deploy no Dokku (máquina rápida)
-
-1. Crie app:
+### Scripts Individuais
 ```bash
-dokku apps:create minio
+# Gerenciar buckets e usuários
+./scripts/manage-buckets.sh
+
+# Limpeza de buckets
+./scripts/cleanup-buckets.sh
 ```
-2. Monte volumes:
+
+## 🔐 Segurança
+
+- ✅ Credenciais em variáveis de ambiente
+- ✅ Permissões específicas por usuário
+- ✅ Buckets privados por padrão
+- ✅ Acesso público controlado (apenas pasta public/)
+
+## 📊 Comandos Úteis
+
+### Verificar Status
 ```bash
-dokku storage:mount minio /mnt/ssd:/data-hot
-dokku storage:mount minio /mnt/nfs-hdd:/data-cold
+# Via script principal (opção 4)
+./minio-manager.sh
+
+# Via MinIO Client direto
+mc admin info s3admin
 ```
-3. Defina variáveis:
+
+### Backup de Configurações
 ```bash
-dokku config:set minio MINIO_ROOT_USER=admin MINIO_ROOT_PASSWORD=senhaSegura
-```
-4. Configure o remote e faça deploy:
-```bash
-git remote add dokku dokku@s3.techdp.app:minio
-git push dokku main
-# OU apenas a pasta minio: git subtree push --prefix=minio dokku main
+# Fazer backup do .env
+cp .env .env.backup
+
+# Restaurar backup
+cp .env.backup .env
 ```
 
-5. **⚠️ IMPORTANTE**: Configure as variáveis de ambiente no servidor:
-```bash
-# No servidor Dokku (s3.techdp.app)
-dokku config:set minio MINIO_ROOT_USER=admin MINIO_ROOT_PASSWORD=senhaSegura123
-```
+## 🚨 Troubleshooting
 
-6. **🔗 Acesso ao MinIO no Dokku**:
-   - **S3 API**: `http://minio.us:9000` 
-   - **Console Web**: `http://minio.us:9001`
+### Erro de Conexão
+1. Verifique as credenciais no `.env`
+2. Teste conectividade: `curl -k https://s3.techdb.app`
+3. Verifique se o MinIO está rodando
 
-## Agendar Tiering
+### Permissões Negadas
+1. Verifique se o usuário foi vinculado ao bucket
+2. Confirme o tipo de acesso (full/readonly)
+3. Teste com usuário admin primeiro
 
-### Local (Docker Compose)
-O tiering já executa automaticamente a cada 3 horas via container `minio-tiering`.
+### Bucket Não Encontrado
+1. Liste buckets: `mc ls s3admin/`
+2. Verifique nome exato do bucket
+3. Confirme se bucket foi criado com sucesso
 
-### Deploy Dokku (máquina rápida)
-```bash
-# máquina rápida (onde roda o MinIO)
-(crontab -l ; echo "0 */3 * * * /home/dokku/scripts/tiering-minio.sh >> /var/log/minio-tier.log 2>&1") | crontab -
-```
+## 📝 Changelog
 
-## Mapeamento de Pastas
+### v2.0.0
+- ✅ Reorganização em pastas
+- ✅ Remoção de credenciais hardcoded
+- ✅ Script principal unificado
+- ✅ Estrutura de pastas internas (não sub-buckets)
+- ✅ Documentação completa
 
-### Local (desenvolvimento)
-```yaml
-volumes:
-  - ./data/hot:/data-hot     # pasta local
-  - ./data/cold:/data-cold   # pasta local
-```
-
-### Produção (discos reais)
-```yaml
-volumes:
-  - /mnt/ssd:/data-hot       # 🔥 SSD rápido
-  - /mnt/hdd:/data-cold      # ❄️ HDD mais lento
-```
+### v1.0.0
+- ✅ Scripts básicos de gerenciamento
+- ✅ Funcionalidade de tiering hot/cold
+- ✅ Deploy via Docker/Dokku

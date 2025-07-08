@@ -81,3 +81,5 @@ wheels/
 # Local configuration overrides
 docker-compose.local.yml
 config.local.*
+
+scripts/users.txt
